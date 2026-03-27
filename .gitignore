@@ -8,3 +8,8 @@ Cargo.lock
 *.log
 *.exe
 *.pdb
+
+# Test files and scripts
+test-*
+*.bat
+.mcp_screenshot/
