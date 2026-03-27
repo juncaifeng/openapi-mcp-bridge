@@ -86,17 +86,16 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R artifacts
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            artifacts/**/*.zip
-            artifacts/**/*.tar.gz
-          generate_release_notes: true
-          draft: false
-          prerelease: false
+      - name: Create Release with GitHub CLI
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create ${{ github.ref_name }} \
+            artifacts/**/*.zip \
+            artifacts/**/*.tar.gz \
+            --title "Release ${{ github.ref_name }}" \
+            --generate-notes \
+            --draft=false
 
   # 可选：发布到 crates.io
   publish-crate:
