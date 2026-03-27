@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "projax": {
+      "command": "E:\\git\\mcp-build\\tags\\openapi-mcp-bridge\\start-projax.bat"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "projax": {
+      "command": "E:\\git\\mcp-build\\tags\\openapi-mcp-bridge\\target\\release\\openapi-mcp-bridge.exe",
+      "env": {
+        "OPENAPI_SPEC_PATH": "http://192.168.90.123:9999/openapi.json",
+        "API_BASE_URL": "http://192.168.90.123:9999"
+      }
+    }
+  }
+}
