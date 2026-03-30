@@ -1,0 +1,236 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "标签管理",
+    "description": "",
+    "version": "1.0.0"
+  },
+  "tags": [
+    {
+      "name": "标签管理"
+    },
+    {
+      "name": "分类管理"
+    }
+  ],
+  "paths": {
+    "/tags/{id}": {
+      "get": {
+        "summary": "获取标签详情",
+        "deprecated": false,
+        "description": "",
+        "operationId": "detail_1",
+        "tags": ["标签管理"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "example": 0,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultTagVO"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/categories/tree": {
+      "get": {
+        "summary": "获取分类树",
+        "deprecated": false,
+        "description": "获取分类树",
+        "operationId": "tree",
+        "tags": ["分类管理"],
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "description": "分组类型，比如查询TAG 分租，使用type=TAG",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultListCommonCategoryVO"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CommonCategoryVO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "categoryType": {
+            "type": "string"
+          },
+          "parentId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "description": {
+            "type": "string"
+          },
+          "sort": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isActive": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isSystem": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "publishedVersion": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "TagVO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "categoriesId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          },
+          "abbreviation": {
+            "type": "string"
+          },
+          "sensitiveLevel": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sort": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isActive": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isSystem": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "publishedVersion": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ResultListCommonCategoryVO": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommonCategoryVO"
+            }
+          }
+        }
+      },
+      "ResultTagVO": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TagVO"
+          }
+        }
+      }
+    },
+    "securitySchemes": {}
+  },
+  "servers": []
+}

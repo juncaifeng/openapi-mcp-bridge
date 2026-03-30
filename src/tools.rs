@@ -13,10 +13,13 @@ pub async fn execute(state: &State, tool: &Tool, args: Value) -> Result<Value> {
     let method = match tool.method.as_str() {
         "GET" => Method::GET,
         "POST" => Method::POST,
-        _ => anyhow::bail!("Unsupported method"),
+        "PUT" => Method::PUT,
+        "DELETE" => Method::DELETE,
+        "PATCH" => Method::PATCH,
+        _ => anyhow::bail!("Unsupported method: {}", tool.method),
     };
 
-    let mut req = client.request(method, &url);
+    let mut req = client.request(method.clone(), &url);
 
     if let Some(token) = &config.auth_token {
         req = req.bearer_auth(token);
@@ -38,8 +41,23 @@ pub async fn execute(state: &State, tool: &Tool, args: Value) -> Result<Value> {
         }
     }
 
-    if let Value::Object(obj) = &args {
-        req = req.query(obj);
+    // Handle parameters based on HTTP method
+    match method {
+        Method::GET | Method::DELETE => {
+            // GET and DELETE: parameters as query string
+            if let Value::Object(obj) = &args {
+                if !obj.is_empty() {
+                    req = req.query(obj);
+                }
+            }
+        }
+        Method::POST | Method::PUT | Method::PATCH => {
+            // POST/PUT/PATCH: parameters as JSON body
+            if !args.is_null() {
+                req = req.json(&args);
+            }
+        }
+        _ => {}
     }
 
     let resp = req.send().await?;
