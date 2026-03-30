@@ -130,14 +130,73 @@ pub fn extract_tools(spec: &OpenAPI) -> Vec<Tool> {
 }
 
 fn make_tool(path: &str, method: &str, op: &openapiv3::Operation) -> Option<Tool> {
-    let name = op.operation_id.clone()
-        .unwrap_or_else(|| format!("{}{}", method.to_lowercase(), path.replace('/', "_")));
+    // Generate a descriptive name using operationId or path-based name
+    let name = if let Some(op_id) = &op.operation_id {
+        // If operationId is too simple (e.g., "tree"), enhance it with path info
+        if op_id.len() < 5 || !op_id.contains('_') {
+            // Create a more descriptive name from path
+            let path_parts: Vec<&str> = path.split('/')
+                .filter(|p| !p.is_empty() && !p.starts_with('{'))
+                .collect();
+            if path_parts.is_empty() {
+                format!("{}_{}", method.to_lowercase(), op_id)
+            } else {
+                format!("{}_{}", path_parts.join("_"), op_id)
+            }
+        } else {
+            op_id.clone()
+        }
+    } else {
+        // Fallback to method + path
+        format!("{}{}", method.to_lowercase(), path.replace('/', "_"))
+    };
 
     let description = op.summary.clone()
         .or_else(|| op.description.clone())
         .unwrap_or_else(|| format!("{} {}", method, path));
 
-    let schema = json!({"type": "object", "properties": {}});
+    // Extract parameters schema
+    let mut properties = serde_json::Map::new();
+    let mut required_params = Vec::new();
+
+    for param_ref in &op.parameters {
+        let param = match param_ref {
+            openapiv3::ReferenceOr::Item(p) => p,
+            _ => continue,
+        };
+
+        let (param_name, is_required) = match param {
+            openapiv3::Parameter::Query { parameter_data, .. } |
+            openapiv3::Parameter::Path { parameter_data, .. } |
+            openapiv3::Parameter::Header { parameter_data, .. } => {
+                (&parameter_data.name, parameter_data.required)
+            }
+            _ => continue,
+        };
+
+        if is_required {
+            required_params.push(param_name.clone());
+        }
+
+        // Convert OpenAPI parameter to JSON Schema
+        let mut schema = serde_json::Map::new();
+        schema.insert("type".to_string(), serde_json::json!("string"));
+        schema.insert("description".to_string(), serde_json::json!(format!("Parameter {}", param_name)));
+
+        properties.insert(param_name.clone(), serde_json::Value::Object(schema));
+    }
+
+    let schema = if properties.is_empty() {
+        json!({"type": "object", "properties": {}})
+    } else {
+        let mut schema_map = serde_json::Map::new();
+        schema_map.insert("type".to_string(), serde_json::json!("object"));
+        schema_map.insert("properties".to_string(), serde_json::Value::Object(properties));
+        if !required_params.is_empty() {
+            schema_map.insert("required".to_string(), serde_json::json!(required_params));
+        }
+        serde_json::Value::Object(schema_map)
+    };
 
     Some(Tool {
         name,
