@@ -107,6 +107,7 @@ fn fix_value(value: &mut serde_json::Value) {
 
 pub fn extract_tools(spec: &OpenAPI) -> Vec<Tool> {
     let mut tools = Vec::new();
+    let mut name_counter: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
 
     for (path, path_item) in spec.paths.iter() {
         let path_item = match path_item {
@@ -115,12 +116,27 @@ pub fn extract_tools(spec: &OpenAPI) -> Vec<Tool> {
         };
 
         if let Some(op) = &path_item.get {
-            if let Some(t) = make_tool(path, "GET", op) {
+            if let Some(t) = make_tool(path, "GET", op, &mut name_counter) {
                 tools.push(t);
             }
         }
         if let Some(op) = &path_item.post {
-            if let Some(t) = make_tool(path, "POST", op) {
+            if let Some(t) = make_tool(path, "POST", op, &mut name_counter) {
+                tools.push(t);
+            }
+        }
+        if let Some(op) = &path_item.put {
+            if let Some(t) = make_tool(path, "PUT", op, &mut name_counter) {
+                tools.push(t);
+            }
+        }
+        if let Some(op) = &path_item.delete {
+            if let Some(t) = make_tool(path, "DELETE", op, &mut name_counter) {
+                tools.push(t);
+            }
+        }
+        if let Some(op) = &path_item.patch {
+            if let Some(t) = make_tool(path, "PATCH", op, &mut name_counter) {
                 tools.push(t);
             }
         }
@@ -129,26 +145,44 @@ pub fn extract_tools(spec: &OpenAPI) -> Vec<Tool> {
     tools
 }
 
-fn make_tool(path: &str, method: &str, op: &openapiv3::Operation) -> Option<Tool> {
-    // Generate a descriptive name using operationId or path-based name
-    let name = if let Some(op_id) = &op.operation_id {
-        // If operationId is too simple (e.g., "tree"), enhance it with path info
-        if op_id.len() < 5 || !op_id.contains('_') {
-            // Create a more descriptive name from path
-            let path_parts: Vec<&str> = path.split('/')
-                .filter(|p| !p.is_empty() && !p.starts_with('{'))
-                .collect();
-            if path_parts.is_empty() {
-                format!("{}_{}", method.to_lowercase(), op_id)
-            } else {
-                format!("{}_{}", path_parts.join("_"), op_id)
-            }
+fn make_tool(
+    path: &str,
+    method: &str,
+    op: &openapiv3::Operation,
+    name_counter: &mut std::collections::HashMap<String, usize>,
+) -> Option<Tool> {
+    // Extract resource name from path (first segment after /)
+    let resource = path
+        .split('/')
+        .filter(|s| !s.is_empty() && !s.starts_with('{'))
+        .next()
+        .unwrap_or("api");
+
+    // Get operation info
+    let op_id = op.operation_id.as_deref().unwrap_or("unknown");
+    let tags = op.tags.first().map(|s| s.as_str()).unwrap_or(resource);
+
+    // Generate a descriptive name: method_resource_operation
+    // Examples:
+    //   GET /terms/{id} -> get_terms_detail
+    //   POST /terms -> post_terms_create
+    //   GET /categories/tree -> get_categories_tree
+    let base_name = format!(
+        "{}_{}_{}",
+        method.to_lowercase(),
+        resource.to_lowercase().replace('-', "_"),
+        op_id.to_lowercase().replace('-', "_")
+    );
+
+    // Handle duplicates: if this name was seen before, append _2, _3, etc.
+    let name = {
+        let count = name_counter.entry(base_name.clone()).or_insert(0);
+        *count += 1;
+        if *count == 1 {
+            base_name
         } else {
-            op_id.clone()
+            format!("{}_{}", base_name, count)
         }
-    } else {
-        // Fallback to method + path
-        format!("{}{}", method.to_lowercase(), path.replace('/', "_"))
     };
 
     let description = op.summary.clone()
