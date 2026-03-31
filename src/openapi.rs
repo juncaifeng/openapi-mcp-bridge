@@ -116,27 +116,27 @@ pub fn extract_tools(spec: &OpenAPI) -> Vec<Tool> {
         };
 
         if let Some(op) = &path_item.get {
-            if let Some(t) = make_tool(path, "GET", op, &mut name_counter) {
+            if let Some(t) = make_tool(spec, path, "GET", op, &mut name_counter) {
                 tools.push(t);
             }
         }
         if let Some(op) = &path_item.post {
-            if let Some(t) = make_tool(path, "POST", op, &mut name_counter) {
+            if let Some(t) = make_tool(spec, path, "POST", op, &mut name_counter) {
                 tools.push(t);
             }
         }
         if let Some(op) = &path_item.put {
-            if let Some(t) = make_tool(path, "PUT", op, &mut name_counter) {
+            if let Some(t) = make_tool(spec, path, "PUT", op, &mut name_counter) {
                 tools.push(t);
             }
         }
         if let Some(op) = &path_item.delete {
-            if let Some(t) = make_tool(path, "DELETE", op, &mut name_counter) {
+            if let Some(t) = make_tool(spec, path, "DELETE", op, &mut name_counter) {
                 tools.push(t);
             }
         }
         if let Some(op) = &path_item.patch {
-            if let Some(t) = make_tool(path, "PATCH", op, &mut name_counter) {
+            if let Some(t) = make_tool(spec, path, "PATCH", op, &mut name_counter) {
                 tools.push(t);
             }
         }
@@ -146,6 +146,7 @@ pub fn extract_tools(spec: &OpenAPI) -> Vec<Tool> {
 }
 
 fn make_tool(
+    spec: &OpenAPI,
     path: &str,
     method: &str,
     op: &openapiv3::Operation,
@@ -221,13 +222,47 @@ fn make_tool(
     }
 
     // Handle request body for POST/PUT/PATCH
-    if let Some(body) = &op.request_body {
-        if let openapiv3::ReferenceOr::Item(body_data) = body {
+    if let Some(body_ref) = &op.request_body {
+        let body_data = match body_ref {
+            openapiv3::ReferenceOr::Item(item) => Some(item),
+            openapiv3::ReferenceOr::Reference { reference } => {
+                // For references, we need to resolve them
+                // The reference format is usually "#/components/requestBodies/{name}"
+                if let Some(body_name) = reference.strip_prefix("#/components/requestBodies/") {
+                    spec.components.as_ref()
+                        .and_then(|c| c.request_bodies.get(body_name))
+                        .and_then(|br| match br {
+                            openapiv3::ReferenceOr::Item(item) => Some(item),
+                            _ => None
+                        })
+                } else {
+                    None
+                }
+            }
+        };
+
+        if let Some(body_data) = body_data {
             // Look for application/json content
             if let Some(json_content) = body_data.content.get("application/json") {
                 if let Some(schema_ref) = &json_content.schema {
-                    // Convert schema to JSON and extract properties
-                    if let Ok(schema_json) = serde_json::to_value(schema_ref) {
+                    // Try to resolve the schema (might be a $ref)
+                    let schema_json = match schema_ref {
+                        openapiv3::ReferenceOr::Reference { reference } => {
+                            // Resolve $ref like "#/components/schemas/TagSaveDTO"
+                            if let Some(schema_name) = reference.strip_prefix("#/components/schemas/") {
+                                spec.components.as_ref()
+                                    .and_then(|c| c.schemas.get(schema_name))
+                                    .and_then(|s| serde_json::to_value(s).ok())
+                            } else {
+                                None
+                            }
+                        }
+                        openapiv3::ReferenceOr::Item(schema) => {
+                            serde_json::to_value(schema).ok()
+                        }
+                    };
+
+                    if let Some(schema_json) = schema_json {
                         if let Some(props) = schema_json.get("properties").and_then(|p| p.as_object()) {
                             for (prop_name, prop_value) in props {
                                 properties.insert(prop_name.clone(), prop_value.clone());
