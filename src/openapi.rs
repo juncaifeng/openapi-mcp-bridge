@@ -220,6 +220,35 @@ fn make_tool(
         properties.insert(param_name.clone(), serde_json::Value::Object(schema));
     }
 
+    // Handle request body for POST/PUT/PATCH
+    if let Some(body) = &op.request_body {
+        if let openapiv3::ReferenceOr::Item(body_data) = body {
+            // Look for application/json content
+            if let Some(json_content) = body_data.content.get("application/json") {
+                if let Some(schema_ref) = &json_content.schema {
+                    // Convert schema to JSON and extract properties
+                    if let Ok(schema_json) = serde_json::to_value(schema_ref) {
+                        if let Some(props) = schema_json.get("properties").and_then(|p| p.as_object()) {
+                            for (prop_name, prop_value) in props {
+                                properties.insert(prop_name.clone(), prop_value.clone());
+                            }
+                        }
+                        // Extract required fields
+                        if let Some(req_fields) = schema_json.get("required").and_then(|r| r.as_array()) {
+                            for req_field in req_fields {
+                                if let Some(field_name) = req_field.as_str() {
+                                    if !required_params.contains(&field_name.to_string()) {
+                                        required_params.push(field_name.to_string());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     let schema = if properties.is_empty() {
         json!({"type": "object", "properties": {}})
     } else {
